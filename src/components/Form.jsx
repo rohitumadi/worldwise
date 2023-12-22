@@ -10,6 +10,7 @@ import BackButton from "./BackButton";
 import Message from "./Message";
 import Spinner from "./Spinner";
 import useURLPosition from "../hooks/useURLPosition";
+import { useCities } from "../contexts/Cities.Context";
 
 export function convertToEmoji(countryCode) {
   const codePoints = countryCode
@@ -22,9 +23,11 @@ const BASE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
 
 function Form() {
   const [cityName, setCityName] = useState("");
+  const { createCity, isLoading } = useCities();
   const [country, setCountry] = useState("");
   const [date, setDate] = useState(new Date());
   const [notes, setNotes] = useState("");
+  const navigate = useNavigate();
   const [lat, lng] = useURLPosition();
   const [emoji, setEmoji] = useState("");
   const [geoCodingError, setGeoCodingError] = useState("");
@@ -44,8 +47,9 @@ function Form() {
             throw new Error(
               "That doesn't seem to be a valid country, please click somewhere else"
             );
+
           setCityName(data.city || data.locality || "");
-          setCountry(data.country || "");
+          setCountry(data.countryName || "");
           setEmoji(convertToEmoji(data.countryCode));
         } catch (err) {
           setGeoCodingError(err.message);
@@ -58,10 +62,23 @@ function Form() {
     },
     [lat, lng]
   );
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
+    if (!date || !cityName) return;
+    const newCity = {
+      cityName,
+      country,
+      emoji,
+      date,
+      notes,
+      position: { lat, lng },
+    };
+
+    await createCity(newCity);
+    navigate("/app/cities");
   }
   if (isLoadingGeocoding) return <Spinner />;
+  if (isLoading) return <Spinner />;
   if (!lat && !lng)
     return <Message message="Start by clicking somewhere on the map" />;
   if (geoCodingError) return <Message message={geoCodingError} />;
@@ -84,7 +101,12 @@ function Form() {
           onChange={(e) => setDate(e.target.value)}
           value={date}
         /> */}
-        <DatePicker />
+        <DatePicker
+          id="date"
+          dateFormat="dd/MM/yy"
+          onChange={(date) => setDate(date)}
+          selected={date}
+        />
       </div>
 
       <div className={styles.row}>
